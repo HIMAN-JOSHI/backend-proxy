@@ -2,6 +2,17 @@ const express = require('express');
 const axios = require('axios');
 const app = express();
 const cors = require('cors');
+const winston = require('winston');
+
+// configure winston logging
+const logger = winston.createLogger({
+  level: 'info', 
+  transports: [
+    new winston.transports.Console({ format: winston.format.simple() }),  // Log to console
+    new winston.transports.File({ filename: 'logs/server.log', format: winston.format.simple() })  // Log to file
+  ]
+});
+
 
 app.use(cors());
 
@@ -33,6 +44,8 @@ async function getJobData(jobPostingId) {
       }`
     };
 
+    logger.info(`Fetching job data for jobPostingId: ${jobPostingId}`);
+
     const response = await axios.post(
       'https://jobs.ashbyhq.com/api/non-user-graphql?op=ApiJobPosting',
       payload
@@ -41,7 +54,7 @@ async function getJobData(jobPostingId) {
     const jobPosting = response.data.data.jobPosting;
 
     if (!jobPosting) {
-      console.error("Job posting not found.");
+      logger.error("Job posting not found.");
       return null;
     }
 
@@ -53,20 +66,20 @@ async function getJobData(jobPostingId) {
       descriptionHtml: jobPosting.descriptionHtml
     };
 
-    console.log(JSON.stringify(jobData, null, 2));
+    logger.info(`Job data fetched successfully: ${JSON.stringify(jobData, null, 2)}`);
 
     return jobData;
 
   } catch (error) {
-    console.error("Error fetching job data:", error);
+    logger.error("Error fetching job data:", error);
     if (error.response) {
-      console.error("Response data:", error.response.data);
-      console.error("Response status:", error.response.status);
-      console.error("Response headers:", error.response.headers);
+      logger.error("Response data:", error.response.data);
+      logger.error("Response status:", error.response.status);
+      logger.error("Response headers:", error.response.headers);
     } else if (error.request) {
-      console.error("Request error:", error.request);
+      logger.error("Request error:", error.request);
     } else {
-      console.error("Error message:", error.message);
+      logger.error("Error message:", error.message);
     }
     return null;
   }
@@ -86,7 +99,7 @@ app.get('/api/fetch-data', async (req, res) => {
     }
 
     const jobId = jobIdMatch[1];
-    console.log("JobId: ", jobId);
+    logger.log("JobId: ", jobId);
 
     const jobData = await getJobData(jobId);
 
@@ -97,13 +110,13 @@ app.get('/api/fetch-data', async (req, res) => {
     res.json(jobData);
 
   } catch (error) {
-    console.error('Error fetching data:', error);
+    logger.error('Error fetching data:', error);
     res.status(500).json({ error: 'Failed to fetch data from the URL' });
   }
 });
 
 // Start the Express server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  logger.info(`Server is running on port ${PORT}`);
 });
